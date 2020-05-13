@@ -18,7 +18,7 @@ type ServiceRegister struct {
 	val           string //value
 }
 
-var ctx, _ = context.WithDeadline(context.Background(), time.Now().Add(10*time.Second))
+var ctx, _ = context.WithTimeout(context.Background(), 10*time.Second)
 
 //NewService 新建注册服务
 func NewService(endpoints []string, key, val string, lease int64) (*ServiceRegister, error) {
