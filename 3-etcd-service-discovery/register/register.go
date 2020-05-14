@@ -18,8 +18,6 @@ type ServiceRegister struct {
 	val           string //value
 }
 
-var ctx, _ = context.WithTimeout(context.Background(), 10*time.Second)
-
 //NewService 新建注册服务
 func NewService(endpoints []string, key, val string, lease int64) (*ServiceRegister, error) {
 	cli, err := clientv3.New(clientv3.Config{
@@ -41,30 +39,29 @@ func NewService(endpoints []string, key, val string, lease int64) (*ServiceRegis
 		return nil, err
 	}
 
-	//监听续租相应chan
-	go ser.ListenLeaseRespChan()
 	return ser, nil
 }
 
 //设置租约
 func (s *ServiceRegister) putKeyWithLease(lease int64) error {
 	//设置租约时间
-	resp, err := s.cli.Grant(ctx, lease)
+	resp, err := s.cli.Grant(context.Background(), lease)
 	if err != nil {
 		return err
 	}
 	//注册服务并绑定租约
-	_, err = s.cli.Put(ctx, s.key, s.val, clientv3.WithLease(resp.ID))
+	_, err = s.cli.Put(context.Background(), s.key, s.val, clientv3.WithLease(resp.ID))
 	if err != nil {
 		return err
 	}
 	//设置续租 定期发送需求请求
-	leaseRespChan, err := s.cli.KeepAlive(ctx, resp.ID)
+	leaseRespChan, err := s.cli.KeepAlive(context.Background(), resp.ID)
 
 	if err != nil {
 		return err
 	}
 	s.leaseID = resp.ID
+	log.Println(s.leaseID)
 	s.keepAliveChan = leaseRespChan
 	log.Printf("Put key:%s  val:%s  success!", s.key, s.val)
 	return nil
@@ -87,8 +84,9 @@ func (s *ServiceRegister) ListenLeaseRespChan() {
 // Close 注销服务
 func (s *ServiceRegister) Close() error {
 	//撤销租约
-	if _, err := s.cli.Revoke(ctx, s.leaseID); err != nil {
+	if _, err := s.cli.Revoke(context.Background(), s.leaseID); err != nil {
 		return err
 	}
+	log.Println("撤销租约")
 	return s.cli.Close()
 }

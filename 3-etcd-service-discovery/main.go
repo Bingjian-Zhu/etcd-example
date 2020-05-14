@@ -3,6 +3,7 @@ package main
 import (
 	"etcd-example/3-etcd-service-discovery/register"
 	"log"
+	"time"
 )
 
 func main() {
@@ -11,6 +12,10 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	log.Println(ser)
-	select {}
+	//监听续租相应chan
+	go ser.ListenLeaseRespChan()
+	select {
+	case <-time.After(20 * time.Second):
+		ser.Close()
+	}
 }
