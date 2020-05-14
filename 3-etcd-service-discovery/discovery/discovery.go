@@ -53,7 +53,7 @@ func (s *ServiceDiscovery) WatchService(prefix string) error {
 //watcher 监听前缀
 func (s *ServiceDiscovery) watcher(prefix string) {
 	rch := s.cli.Watch(context.Background(), prefix, clientv3.WithPrefix())
-	log.Println("watching now...")
+	log.Printf("watching prefix:%s now...", prefix)
 	for wresp := range rch {
 		for _, ev := range wresp.Events {
 			switch ev.Type {
@@ -71,7 +71,7 @@ func (s *ServiceDiscovery) SetServiceList(key, val string) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	s.serverList[key] = string(val)
-	log.Println("set key :", key, "val:", val)
+	log.Println("put key :", key, "val:", val)
 }
 
 //DelServiceList 删除服务地址
