@@ -61,7 +61,6 @@ func (s *ServiceRegister) putKeyWithLease(lease int64) error {
 		return err
 	}
 	s.leaseID = resp.ID
-	log.Println(s.leaseID)
 	s.keepAliveChan = leaseRespChan
 	log.Printf("Put key:%s  val:%s  success!", s.key, s.val)
 	return nil
