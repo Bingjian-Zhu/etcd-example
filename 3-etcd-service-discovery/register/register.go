@@ -1,4 +1,4 @@
-package register
+package main
 
 import (
 	"context"
@@ -18,8 +18,8 @@ type ServiceRegister struct {
 	val           string //value
 }
 
-//NewService 新建注册服务
-func NewService(endpoints []string, key, val string, lease int64) (*ServiceRegister, error) {
+//NewServiceRegister 新建注册服务
+func NewServiceRegister(endpoints []string, key, val string, lease int64) (*ServiceRegister, error) {
 	cli, err := clientv3.New(clientv3.Config{
 		Endpoints:   endpoints,
 		DialTimeout: 5 * time.Second,
@@ -83,4 +83,18 @@ func (s *ServiceRegister) Close() error {
 	}
 	log.Println("撤销租约")
 	return s.cli.Close()
+}
+
+func main() {
+	var endpoints = []string{"localhost:2379"}
+	ser, err := NewServiceRegister(endpoints, "/web/node1", "node1", 5)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	//监听续租相应chan
+	go ser.ListenLeaseRespChan()
+	select {
+	case <-time.After(20 * time.Second):
+		ser.Close()
+	}
 }
