@@ -70,7 +70,7 @@ func (s *ServiceRegister) putKeyWithLease(lease int64) error {
 //ListenLeaseRespChan 监听 续租情况
 func (s *ServiceRegister) ListenLeaseRespChan() {
 	for leaseKeepResp := range s.keepAliveChan {
-		log.Println("续约成功")
+		log.Println("续约成功", leaseKeepResp)
 	}
 	log.Println("关闭续租")
 }
@@ -87,14 +87,14 @@ func (s *ServiceRegister) Close() error {
 
 func main() {
 	var endpoints = []string{"localhost:2379"}
-	ser, err := NewServiceRegister(endpoints, "/web/node1", "node1", 5)
+	ser, err := NewServiceRegister(endpoints, "/web/node1", "localhost:8000", 5)
 	if err != nil {
 		log.Fatalln(err)
 	}
 	//监听续租相应chan
 	go ser.ListenLeaseRespChan()
 	select {
-	case <-time.After(20 * time.Second):
-		ser.Close()
+	// case <-time.After(20 * time.Second):
+	// 	ser.Close()
 	}
 }

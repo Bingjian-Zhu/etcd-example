@@ -2,13 +2,12 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"sync"
 	"time"
 
+	"github.com/coreos/etcd/mvcc/mvccpb"
 	"go.etcd.io/etcd/clientv3"
-	"go.etcd.io/etcd/mvcc/mvccpb"
 )
 
 //ServiceDiscovery 服务发现
@@ -28,7 +27,7 @@ func NewServiceDiscovery(endpoints []string) *ServiceDiscovery {
 		log.Fatal(err)
 	}
 
-	return &ClientDis{
+	return &ServiceDiscovery{
 		cli:        cli,
 		serverList: make(map[string]string),
 	}
@@ -43,8 +42,7 @@ func (s *ServiceDiscovery) WatchService(prefix string) error {
 	}
 
 	for _, ev := range resp.Kvs {
-		fmt.Printf("%s : %s\n", ev.Key, ev.Value)
-		s.SetServiceList(ev.Key, ev.Value)
+		s.SetServiceList(string(ev.Key), string(ev.Value))
 	}
 
 	//监视前缀，修改变更的server
@@ -96,11 +94,21 @@ func (s *ServiceDiscovery) GetServices() []string {
 	return addrs
 }
 
+//Close 关闭服务
+func (s *ServiceDiscovery) Close() error {
+	return s.cli.Close()
+}
+
 func main() {
 	var endpoints = []string{"localhost:2379"}
 	ser := NewServiceDiscovery(endpoints)
+	defer ser.Close()
 	ser.WatchService("/web/")
 	ser.WatchService("/gRPC/")
-	log.Println(ser.GetServices())
-	select {}
+	for {
+		select {
+		case <-time.Tick(10 * time.Second):
+			log.Println(ser.GetServices())
+		}
+	}
 }
