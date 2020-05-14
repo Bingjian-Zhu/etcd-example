@@ -27,7 +27,7 @@ func NewService(endpoints []string, key, val string, lease int64) (*ServiceRegis
 	if err != nil {
 		log.Fatal(err)
 	}
-	//var client *clientv3.Client = cli
+
 	ser := &ServiceRegister{
 		cli: cli,
 		key: key,
@@ -69,16 +69,10 @@ func (s *ServiceRegister) putKeyWithLease(lease int64) error {
 
 //ListenLeaseRespChan 监听 续租情况
 func (s *ServiceRegister) ListenLeaseRespChan() {
-	for {
-		select {
-		case leaseKeepResp := <-s.keepAliveChan:
-			if leaseKeepResp == nil {
-				log.Println("已经关闭续租功能")
-				return
-			}
-			log.Println("续租成功")
-		}
+	for leaseKeepResp := range s.keepAliveChan {
+		log.Println("续约成功")
 	}
+	log.Println("关闭续租")
 }
 
 // Close 注销服务
