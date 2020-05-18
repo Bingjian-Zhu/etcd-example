@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"log"
+	"strconv"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/resolver"
@@ -14,11 +16,11 @@ import (
 // Address 连接地址
 const Address string = ":8000"
 
-var grpcClient pb.StreamServerClient
+var grpcClient pb.SimpleClient
 
 func main() {
 	var endpoints = []string{"localhost:2379"}
-	r := etcdv3.NewResolver(endpoints)
+	r := etcdv3.NewServiceDiscovery(endpoints)
 	resolver.Register(r)
 	// 连接服务器
 	conn, err := grpc.Dial(r.Scheme()+"://8.8.8.8/simple_grpc", grpc.WithBalancerName("round_robin"), grpc.WithInsecure())
@@ -28,15 +30,19 @@ func main() {
 	defer conn.Close()
 
 	// 建立gRPC连接
-	grpcClient = pb.NewStreamServerClient(conn)
-	route()
+	grpcClient = pb.NewSimpleClient(conn)
+	for i := 0; i < 100; i++ {
+		route(i)
+		time.Sleep(1 * time.Second)
+	}
+
 }
 
 // route 调用服务端Route方法
-func route() {
+func route(i int) {
 	// 创建发送结构体
 	req := pb.SimpleRequest{
-		Data: "grpc",
+		Data: strconv.Itoa(i) + " grpc",
 	}
 	// 调用我们的服务(Route方法)
 	// 同时传入了一个 context.Context ，在有需要时可以让我们改变RPC的行为，比如超时/取消一个正在运行的RPC

@@ -7,6 +7,7 @@ import (
 
 	"google.golang.org/grpc"
 
+	"etcd-example/4-etcd-grpclb/etcdv3"
 	pb "etcd-example/4-etcd-grpclb/proto"
 )
 
@@ -33,7 +34,11 @@ func main() {
 	grpcServer := grpc.NewServer()
 	// 在gRPC服务器注册我们的服务
 	pb.RegisterSimpleServer(grpcServer, &SimpleService{})
-	go etcdv3.NewServiceRegister([]string{"localhost:2379"}, svcName, Address, 5)
+	ser, err := etcdv3.NewServiceRegister([]string{"localhost:2379"}, svcName, Address, 5)
+	if err != nil {
+		log.Fatalf("register service err: %v", err)
+	}
+	defer ser.Close()
 	//用服务器 Serve() 方法以及我们的端口信息区实现阻塞等待，直到进程被杀死或者 Stop() 被调用
 	err = grpcServer.Serve(listener)
 	if err != nil {

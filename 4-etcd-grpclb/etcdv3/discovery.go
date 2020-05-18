@@ -30,8 +30,7 @@ func NewServiceDiscovery(endpoints []string) resolver.Builder {
 	}
 
 	return &ServiceDiscovery{
-		cli:        cli,
-		serverList: make(map[string]string),
+		cli: cli,
 	}
 }
 
@@ -43,20 +42,31 @@ func (s *ServiceDiscovery) Build(target resolver.Target, cc resolver.ClientConn,
 	//根据前缀获取现有的key
 	resp, err := s.cli.Get(context.Background(), prefix, clientv3.WithPrefix())
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	for _, ev := range resp.Kvs {
-		addrList = append(addrList, resolver.Address{Addr: strings.TrimPrefix(string(ev.Key), keyPrefix)})
+		addrList = append(addrList, resolver.Address{Addr: strings.TrimPrefix(string(ev.Key), prefix)})
 	}
-	r.cc.NewAddress(addrList, addrList)
+	s.cc.NewAddress(addrList)
 	//监视前缀，修改变更的server
-	go s.watcher(prefix)
-	return nil
+	go s.watcher(prefix, addrList)
+	return s, nil
 }
 
-func (r etcdResolver) Scheme() string {
+// ResolveNow new
+func (s *ServiceDiscovery) ResolveNow(rn resolver.ResolveNowOption) {
+	log.Println("ResolveNow") // TODO check
+}
+
+//Scheme return schema
+func (s *ServiceDiscovery) Scheme() string {
 	return schema
+}
+
+//Close 关闭服务
+func (s *ServiceDiscovery) Close() {
+	s.cli.Close()
 }
 
 //watcher 监听前缀
@@ -65,16 +75,17 @@ func (s *ServiceDiscovery) watcher(prefix string, addrList []resolver.Address) {
 	log.Printf("watching prefix:%s now...", prefix)
 	for wresp := range rch {
 		for _, ev := range wresp.Events {
+			addr := strings.TrimPrefix(string(ev.Kv.Key), prefix)
 			switch ev.Type {
 			case mvccpb.PUT: //新增
 				if !exist(addrList, addr) {
 					addrList = append(addrList, resolver.Address{Addr: addr})
-					r.cc.NewAddress(addrList)
+					s.cc.NewAddress(addrList)
 				}
 			case mvccpb.DELETE: //删除
-				if s, ok := remove(addrList, addr); ok {
-					addrList = s
-					r.cc.NewAddress(addrList)
+				if tmp, ok := remove(addrList, addr); ok {
+					addrList = tmp
+					s.cc.NewAddress(addrList)
 				}
 			}
 		}
@@ -98,9 +109,4 @@ func remove(s []resolver.Address, addr string) ([]resolver.Address, bool) {
 		}
 	}
 	return nil, false
-}
-
-//Close 关闭服务
-func (s *ServiceDiscovery) Close() error {
-	return s.cli.Close()
 }
