@@ -16,7 +16,7 @@ type SimpleService struct{}
 
 const (
 	// Address 监听地址
-	Address string = "127.0.0.1:8000"
+	Address string = "127.0.0.1:8001"
 	// Network 网络通信协议
 	Network string = "tcp"
 	// svcName 服务名称
@@ -48,6 +48,7 @@ func main() {
 
 // Route 实现Route方法
 func (s *SimpleService) Route(ctx context.Context, req *pb.SimpleRequest) (*pb.SimpleResponse, error) {
+	log.Println(req.Data)
 	res := pb.SimpleResponse{
 		Code:  200,
 		Value: "hello " + req.Data,

@@ -70,7 +70,7 @@ func (s *ServiceDiscovery) watcher(prefix string) {
 func (s *ServiceDiscovery) SetServiceList(key, val string) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	s.serverList[key] = string(val)
+	s.serverList[key] = val
 	log.Println("put key :", key, "val:", val)
 }
 
@@ -86,7 +86,7 @@ func (s *ServiceDiscovery) DelServiceList(key string) {
 func (s *ServiceDiscovery) GetServices() []string {
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	addrs := make([]string, 0)
+	addrs := make([]string, 0, len(serverList))
 
 	for _, v := range s.serverList {
 		addrs = append(addrs, v)

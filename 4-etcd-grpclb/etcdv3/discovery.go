@@ -3,7 +3,7 @@ package etcdv3
 import (
 	"context"
 	"log"
-	"strings"
+	"sync"
 	"time"
 
 	"github.com/coreos/etcd/mvcc/mvccpb"
@@ -15,8 +15,10 @@ const schema = "grpclb"
 
 //ServiceDiscovery 服务发现
 type ServiceDiscovery struct {
-	cli *clientv3.Client //etcd client
-	cc  resolver.ClientConn
+	cli        *clientv3.Client //etcd client
+	cc         resolver.ClientConn
+	serverList map[string]resolver.Address //服务列表
+	lock       sync.Mutex
 }
 
 //NewServiceDiscovery  新建发现服务
@@ -36,9 +38,10 @@ func NewServiceDiscovery(endpoints []string) resolver.Builder {
 
 //Build 创建一个解析器，该解析器将用于监视名称解析更新
 func (s *ServiceDiscovery) Build(target resolver.Target, cc resolver.ClientConn, opts resolver.BuildOption) (resolver.Resolver, error) {
+	log.Println("Build")
 	s.cc = cc
+	s.serverList = make(map[string]resolver.Address)
 	prefix := "/" + target.Scheme + "/" + target.Endpoint + "/"
-	var addrList []resolver.Address
 	//根据前缀获取现有的key
 	resp, err := s.cli.Get(context.Background(), prefix, clientv3.WithPrefix())
 	if err != nil {
@@ -46,17 +49,17 @@ func (s *ServiceDiscovery) Build(target resolver.Target, cc resolver.ClientConn,
 	}
 
 	for _, ev := range resp.Kvs {
-		addrList = append(addrList, resolver.Address{Addr: strings.TrimPrefix(string(ev.Key), prefix)})
+		s.SetServiceList(string(ev.Key), string(ev.Value))
 	}
-	s.cc.NewAddress(addrList)
+	s.cc.NewAddress(s.getServices())
 	//监视前缀，修改变更的server
-	go s.watcher(prefix, addrList)
+	go s.watcher(prefix)
 	return s, nil
 }
 
-// ResolveNow new
+// ResolveNow 监视目标更新
 func (s *ServiceDiscovery) ResolveNow(rn resolver.ResolveNowOption) {
-	log.Println("ResolveNow") // TODO check
+	log.Println("ResolveNow")
 }
 
 //Scheme return schema
@@ -64,49 +67,52 @@ func (s *ServiceDiscovery) Scheme() string {
 	return schema
 }
 
-//Close 关闭服务
+//Close 关闭
 func (s *ServiceDiscovery) Close() {
+	log.Println("Close")
 	s.cli.Close()
 }
 
 //watcher 监听前缀
-func (s *ServiceDiscovery) watcher(prefix string, addrList []resolver.Address) {
+func (s *ServiceDiscovery) watcher(prefix string) {
 	rch := s.cli.Watch(context.Background(), prefix, clientv3.WithPrefix())
 	log.Printf("watching prefix:%s now...", prefix)
 	for wresp := range rch {
 		for _, ev := range wresp.Events {
-			addr := strings.TrimPrefix(string(ev.Kv.Key), prefix)
 			switch ev.Type {
-			case mvccpb.PUT: //新增
-				if !exist(addrList, addr) {
-					addrList = append(addrList, resolver.Address{Addr: addr})
-					s.cc.NewAddress(addrList)
-				}
+			case mvccpb.PUT: //新增或修改
+				s.SetServiceList(string(ev.Kv.Key), string(ev.Kv.Value))
 			case mvccpb.DELETE: //删除
-				if tmp, ok := remove(addrList, addr); ok {
-					addrList = tmp
-					s.cc.NewAddress(addrList)
-				}
+				s.DelServiceList(string(ev.Kv.Key))
 			}
 		}
 	}
 }
 
-func exist(l []resolver.Address, addr string) bool {
-	for i := range l {
-		if l[i].Addr == addr {
-			return true
-		}
-	}
-	return false
+//SetServiceList 新增服务地址
+func (s *ServiceDiscovery) SetServiceList(key, val string) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	s.serverList[key] = resolver.Address{Addr: val}
+	s.cc.NewAddress(s.getServices())
+	log.Println("put key :", key, "val:", val)
 }
 
-func remove(s []resolver.Address, addr string) ([]resolver.Address, bool) {
-	for i := range s {
-		if s[i].Addr == addr {
-			s[i] = s[len(s)-1]
-			return s[:len(s)-1], true
-		}
+//DelServiceList 删除服务地址
+func (s *ServiceDiscovery) DelServiceList(key string) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	delete(s.serverList, key)
+	s.cc.NewAddress(s.getServices())
+	log.Println("del key:", key)
+}
+
+//GetServices 获取服务地址
+func (s *ServiceDiscovery) getServices() []resolver.Address {
+	addrs := make([]resolver.Address, 0, len(s.serverList))
+
+	for _, v := range s.serverList {
+		addrs = append(addrs, v)
 	}
-	return nil, false
+	return addrs
 }
