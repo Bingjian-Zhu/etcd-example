@@ -13,14 +13,14 @@ import (
 	pb "etcd-example/4-etcd-grpclb/proto"
 )
 
-// Address 连接地址
-const Address string = ":8000"
-
-var grpcClient pb.SimpleClient
+var (
+	// EtcdEndpoints etcd地址
+	EtcdEndpoints = []string{"localhost:2379"}
+	grpcClient    pb.SimpleClient
+)
 
 func main() {
-	var endpoints = []string{"localhost:2379"}
-	r := etcdv3.NewServiceDiscovery(endpoints)
+	r := etcdv3.NewServiceDiscovery(EtcdEndpoints)
 	resolver.Register(r)
 	// 连接服务器
 	conn, err := grpc.Dial(r.Scheme()+"://8.8.8.8/simple_grpc", grpc.WithBalancerName("round_robin"), grpc.WithInsecure())
