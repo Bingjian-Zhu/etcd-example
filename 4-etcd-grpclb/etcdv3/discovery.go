@@ -36,7 +36,7 @@ func NewServiceDiscovery(endpoints []string) resolver.Builder {
 	}
 }
 
-//Build 创建一个解析器，该解析器将用于监视名称解析更新
+//Build 为给定目标创建一个新的`resolver`，当调用`grpc.Dial()`时执行
 func (s *ServiceDiscovery) Build(target resolver.Target, cc resolver.ClientConn, opts resolver.BuildOption) (resolver.Resolver, error) {
 	log.Println("Build")
 	s.cc = cc
