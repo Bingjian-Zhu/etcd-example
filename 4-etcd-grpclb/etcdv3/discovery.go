@@ -51,7 +51,7 @@ func (s *ServiceDiscovery) Build(target resolver.Target, cc resolver.ClientConn,
 	for _, ev := range resp.Kvs {
 		s.SetServiceList(string(ev.Key), string(ev.Value))
 	}
-	s.cc.NewAddress(s.getServices())
+	s.cc.UpdateState(resolver.State{Addresses: s.getServices()})
 	//监视前缀，修改变更的server
 	go s.watcher(prefix)
 	return s, nil
@@ -94,7 +94,7 @@ func (s *ServiceDiscovery) SetServiceList(key, val string) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	s.serverList[key] = resolver.Address{Addr: val}
-	s.cc.NewAddress(s.getServices())
+	s.cc.UpdateState(resolver.State{Addresses: s.getServices()})
 	log.Println("put key :", key, "val:", val)
 }
 
@@ -103,7 +103,7 @@ func (s *ServiceDiscovery) DelServiceList(key string) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	delete(s.serverList, key)
-	s.cc.NewAddress(s.getServices())
+	s.cc.UpdateState(resolver.State{Addresses: s.getServices()})
 	log.Println("del key:", key)
 }
 

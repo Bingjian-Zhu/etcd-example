@@ -16,6 +16,7 @@ import (
 var (
 	// EtcdEndpoints etcd地址
 	EtcdEndpoints = []string{"localhost:2379"}
+	SerName = "simple_grpc"
 	grpcClient    pb.SimpleClient
 )
 
@@ -23,7 +24,11 @@ func main() {
 	r := etcdv3.NewServiceDiscovery(EtcdEndpoints)
 	resolver.Register(r)
 	// 连接服务器
-	conn, err := grpc.Dial(r.Scheme()+"://8.8.8.8/simple_grpc", grpc.WithBalancerName("round_robin"), grpc.WithInsecure())
+	conn, err := grpc.Dial(
+		fmt.Sprintf("%s:///%s", r.Scheme(), SerName),
+		grpc.WithBalancerName("round_robin"), 
+		grpc.WithInsecure()
+	)
 	if err != nil {
 		log.Fatalf("net.Connect err: %v", err)
 	}
