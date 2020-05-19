@@ -1,6 +1,7 @@
 package weight
 
 import (
+	"math/rand"
 	"sync"
 
 	"google.golang.org/grpc/balancer"
@@ -11,6 +12,9 @@ import (
 
 // Name is the name of weight balancer.
 const Name = "weight"
+
+// DefaultNodeWeight is 1
+var DefaultNodeWeight = 1
 
 // AddrInfo will be stored inside Address metadata in order to use weighted balancer.
 type AddrInfo struct {
@@ -53,10 +57,6 @@ func (*rrPickerBuilder) Build(info base.PickerBuildInfo) balancer.V2Picker {
 	}
 	return &rrPicker{
 		subConns: scs,
-		// Start at a random index, as the same RR balancer rebuilds a new
-		// picker when SubConn states change, and we don't want to apply excess
-		// load to the first server in the list.
-		next: 0,
 	}
 }
 
@@ -66,14 +66,36 @@ type rrPicker struct {
 	// selection from it and return the selected SubConn.
 	subConns []balancer.SubConn
 
-	mu   sync.Mutex
-	next int
+	mu sync.Mutex
 }
 
 func (p *rrPicker) Pick(balancer.PickInfo) (balancer.PickResult, error) {
+	var totalWeight int
 	p.mu.Lock()
-	sc := p.subConns[p.next]
-	p.next = (p.next + 1) % len(p.subConns)
+	for _, addr := range p.subConns {
+		val := GetAddrInfo(addr)
+		if val.Weight == 0 {
+			val.Weight = DefaultNodeWeight
+		}
+		totalWeight += val.Weight
+	}
+
+	curWeight := rand.Intn(totalWeight)
+	curIndex := -1
+	for index, addr := range p.subConns {
+		node := GetAddrInfo(addr)
+		curWeight -= node.Weight
+		if curWeight < 0 {
+			curIndex = index
+			break
+		}
+	}
+
+	if curIndex == -1 {
+		err = ErrNotHaveNodes
+		return
+	}
+	sc := p.subConns[curIndex]
 	p.mu.Unlock()
 	return balancer.PickResult{SubConn: sc}, nil
 }
