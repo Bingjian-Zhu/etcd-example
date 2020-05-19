@@ -16,6 +16,10 @@ const Name = "weight"
 // DefaultNodeWeight is 1
 var DefaultNodeWeight = 1
 
+// attributeKey is the type used as the key to store AddrInfo in the Attributes
+// field of resolver.Address.
+type attributeKey struct{}
+
 // AddrInfo will be stored inside Address metadata in order to use weighted balancer.
 type AddrInfo struct {
 	Weight uint32
@@ -92,7 +96,6 @@ func (p *rrPicker) Pick(balancer.PickInfo) (balancer.PickResult, error) {
 	}
 
 	if curIndex == -1 {
-		err = ErrNotHaveNodes
 		return
 	}
 	sc := p.subConns[curIndex]
