@@ -8,10 +8,12 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/balancer"
 	"google.golang.org/grpc/resolver"
 
 	"etcd-example/4-etcd-grpclb/etcdv3"
 	pb "etcd-example/4-etcd-grpclb/proto"
+	"etcd-example/4-etcd-grpclb/weight"
 )
 
 var (
@@ -23,12 +25,13 @@ var (
 )
 
 func main() {
+	balancer.Register(weight.NewBuilder())
 	r := etcdv3.NewServiceDiscovery(EtcdEndpoints)
 	resolver.Register(r)
 	// 连接服务器
 	conn, err := grpc.Dial(
 		fmt.Sprintf("%s:///%s", r.Scheme(), SerName),
-		grpc.WithBalancerName("round_robin"),
+		grpc.WithBalancerName("weight"),
 		grpc.WithInsecure(),
 	)
 	if err != nil {
