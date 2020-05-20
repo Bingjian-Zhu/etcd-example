@@ -4,11 +4,11 @@ import (
 	"context"
 	"log"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
-	"strings"
 
-	"etcd-example/5-etcd-grpclb-weight/weight"
+	"etcd-example/5-etcd-grpclb-weight/balancer/weight"
 
 	"github.com/coreos/etcd/mvcc/mvccpb"
 	"go.etcd.io/etcd/clientv3"
@@ -23,7 +23,7 @@ type ServiceDiscovery struct {
 	cc         resolver.ClientConn
 	serverList map[string]resolver.Address //服务列表
 	lock       sync.Mutex
-	prefix string //监视的前缀
+	prefix     string //监视的前缀
 }
 
 //NewServiceDiscovery  新建发现服务
@@ -98,9 +98,9 @@ func (s *ServiceDiscovery) watcher() {
 func (s *ServiceDiscovery) SetServiceList(key, val string) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	addr := resolver.Address{Addr: strings.TrimPrefix(key,s.prefix)}
-	nodeWeight,err := strconv.Atoi(val)
-	if err != nil{
+	addr := resolver.Address{Addr: strings.TrimPrefix(key, s.prefix)}
+	nodeWeight, err := strconv.Atoi(val)
+	if err != nil {
 		nodeWeight = 1
 	}
 	addr = weight.SetAddrInfo(addr, weight.AddrInfo{Weight: nodeWeight})

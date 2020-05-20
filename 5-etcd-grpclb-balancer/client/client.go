@@ -8,12 +8,10 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/balancer"
 	"google.golang.org/grpc/resolver"
 
 	"etcd-example/5-etcd-grpclb-weight/etcdv3"
 	pb "etcd-example/5-etcd-grpclb-weight/proto"
-	"etcd-example/5-etcd-grpclb-weight/weight"
 )
 
 var (
@@ -25,7 +23,6 @@ var (
 )
 
 func main() {
-	balancer.Register(weight.NewBuilder())
 	r := etcdv3.NewServiceDiscovery(EtcdEndpoints)
 	resolver.Register(r)
 	// 连接服务器

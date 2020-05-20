@@ -1,7 +1,6 @@
 package weight
 
 import (
-	"log"
 	"math/rand"
 	"sync"
 
@@ -45,8 +44,12 @@ func GetAddrInfo(addr resolver.Address) AddrInfo {
 }
 
 // NewBuilder creates a new weight balancer builder.
-func NewBuilder() balancer.Builder {
+func newBuilder() balancer.Builder {
 	return base.NewBalancerBuilderV2(Name, &rrPickerBuilder{}, base.Config{HealthCheck: false})
+}
+
+func init() {
+	balancer.Register(newBuilder())
 }
 
 type rrPickerBuilder struct{}
@@ -68,7 +71,6 @@ func (*rrPickerBuilder) Build(info base.PickerBuildInfo) balancer.V2Picker {
 			scs = append(scs, subConn)
 		}
 	}
-	log.Println(scs)
 	return &rrPicker{
 		subConns: scs,
 	}
