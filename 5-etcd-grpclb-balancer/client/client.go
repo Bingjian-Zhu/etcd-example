@@ -10,8 +10,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/resolver"
 
-	"etcd-example/5-etcd-grpclb-weight/etcdv3"
-	pb "etcd-example/5-etcd-grpclb-weight/proto"
+	"etcd-example/5-etcd-grpclb-balancer/etcdv3"
+	pb "etcd-example/5-etcd-grpclb-balancer/proto"
 )
 
 var (

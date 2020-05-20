@@ -7,8 +7,8 @@ import (
 
 	"google.golang.org/grpc"
 
-	"etcd-example/5-etcd-grpclb-weight/etcdv3"
-	pb "etcd-example/5-etcd-grpclb-weight/proto"
+	"etcd-example/5-etcd-grpclb-balancer/etcdv3"
+	pb "etcd-example/5-etcd-grpclb-balancer/proto"
 )
 
 // SimpleService 定义我们的服务
@@ -16,7 +16,7 @@ type SimpleService struct{}
 
 const (
 	// Address 监听地址
-	Address string = "localhost:8001"
+	Address string = "localhost:8000"
 	// Network 网络通信协议
 	Network string = "tcp"
 	// SerName 服务名称
@@ -38,7 +38,7 @@ func main() {
 	// 在gRPC服务器注册我们的服务
 	pb.RegisterSimpleServer(grpcServer, &SimpleService{})
 	//把服务注册到etcd
-	ser, err := etcdv3.NewServiceRegister(EtcdEndpoints, SerName + "/"+ Address,"3", 5)
+	ser, err := etcdv3.NewServiceRegister(EtcdEndpoints, SerName+"/"+Address, "1", 5)
 	if err != nil {
 		log.Fatalf("register service err: %v", err)
 	}

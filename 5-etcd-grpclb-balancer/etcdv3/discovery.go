@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"etcd-example/5-etcd-grpclb-weight/balancer/weight"
+	"etcd-example/5-etcd-grpclb-balancer/balancer/weight"
 
 	"github.com/coreos/etcd/mvcc/mvccpb"
 	"go.etcd.io/etcd/clientv3"
