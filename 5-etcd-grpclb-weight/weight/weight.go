@@ -1,6 +1,7 @@
 package weight
 
 import (
+	"log"
 	"math/rand"
 	"sync"
 
@@ -14,8 +15,10 @@ import (
 // Name is the name of weight balancer.
 const Name = "weight"
 
-// DefaultNodeWeight is 1
-var DefaultNodeWeight = 1
+var (
+	minWeight = 1
+	maxWeight = 5
+)
 
 // attributeKey is the type used as the key to store AddrInfo in the Attributes
 // field of resolver.Address.
@@ -28,8 +31,6 @@ type AddrInfo struct {
 
 // SetAddrInfo returns a copy of addr in which the Attributes field is updated
 // with addrInfo.
-//
-// This is an EXPERIMENTAL API.
 func SetAddrInfo(addr resolver.Address, addrInfo AddrInfo) resolver.Address {
 	addr.Attributes = attributes.New()
 	addr.Attributes = addr.Attributes.WithValues(attributeKey{}, addrInfo)
@@ -37,8 +38,6 @@ func SetAddrInfo(addr resolver.Address, addrInfo AddrInfo) resolver.Address {
 }
 
 // GetAddrInfo returns the AddrInfo stored in the Attributes fields of addr.
-//
-// This is an EXPERIMENTAL API.
 func GetAddrInfo(addr resolver.Address) AddrInfo {
 	v := addr.Attributes.Value(attributeKey{})
 	ai, _ := v.(AddrInfo)
@@ -47,7 +46,7 @@ func GetAddrInfo(addr resolver.Address) AddrInfo {
 
 // NewBuilder creates a new weight balancer builder.
 func NewBuilder() balancer.Builder {
-	return base.NewBalancerBuilderV2(Name, &rrPickerBuilder{}, base.Config{HealthCheck: true})
+	return base.NewBalancerBuilderV2(Name, &rrPickerBuilder{}, base.Config{HealthCheck: false})
 }
 
 type rrPickerBuilder struct{}
@@ -57,10 +56,19 @@ func (*rrPickerBuilder) Build(info base.PickerBuildInfo) balancer.V2Picker {
 	if len(info.ReadySCs) == 0 {
 		return base.NewErrPickerV2(balancer.ErrNoSubConnAvailable)
 	}
-	scs := make(map[resolver.Address]balancer.SubConn)
+	var scs []balancer.SubConn
 	for subConn, addr := range info.ReadySCs {
-		scs[addr.Address] = subConn
+		node := GetAddrInfo(addr.Address)
+		if node.Weight <= 0 {
+			node.Weight = minWeight
+		} else if node.Weight > 5 {
+			node.Weight = maxWeight
+		}
+		for i := 0; i < node.Weight; i++ {
+			scs = append(scs, subConn)
+		}
 	}
+	log.Println(scs)
 	return &rrPicker{
 		subConns: scs,
 	}
@@ -70,35 +78,15 @@ type rrPicker struct {
 	// subConns is the snapshot of the roundrobin balancer when this picker was
 	// created. The slice is immutable. Each Get() will do a round robin
 	// selection from it and return the selected SubConn.
-	subConns map[resolver.Address]balancer.SubConn
+	subConns []balancer.SubConn
 
 	mu sync.Mutex
 }
 
 func (p *rrPicker) Pick(balancer.PickInfo) (balancer.PickResult, error) {
-	var totalWeight int
 	p.mu.Lock()
-	for addr := range p.subConns {
-		val := GetAddrInfo(addr)
-		if val.Weight <= 0 {
-			val.Weight = DefaultNodeWeight
-		}
-		totalWeight += val.Weight
-	}
-
-	curWeight := rand.Intn(totalWeight)
-	var curAddr resolver.Address
-	index := 0
-	for addr := range p.subConns {
-		node := GetAddrInfo(addr)
-		curWeight -= node.Weight
-		if curWeight < 0 {
-			curAddr = addr
-			break
-		}
-		index++
-	}
-	sc := p.subConns[curAddr]
+	index := rand.Intn(len(p.subConns))
+	sc := p.subConns[index]
 	p.mu.Unlock()
 	return balancer.PickResult{SubConn: sc}, nil
 }

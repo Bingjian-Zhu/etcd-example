@@ -38,7 +38,7 @@ func main() {
 	// 在gRPC服务器注册我们的服务
 	pb.RegisterSimpleServer(grpcServer, &SimpleService{})
 	//把服务注册到etcd
-	ser, err := etcdv3.NewServiceRegister(EtcdEndpoints, SerName, Address, 5)
+	ser, err := etcdv3.NewServiceRegister(EtcdEndpoints, SerName + "/"+ Address,"3", 5)
 	if err != nil {
 		log.Fatalf("register service err: %v", err)
 	}

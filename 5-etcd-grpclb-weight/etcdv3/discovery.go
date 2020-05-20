@@ -3,8 +3,10 @@ package etcdv3
 import (
 	"context"
 	"log"
+	"strconv"
 	"sync"
 	"time"
+	"strings"
 
 	"etcd-example/5-etcd-grpclb-weight/weight"
 
@@ -21,6 +23,7 @@ type ServiceDiscovery struct {
 	cc         resolver.ClientConn
 	serverList map[string]resolver.Address //服务列表
 	lock       sync.Mutex
+	prefix string //监视的前缀
 }
 
 //NewServiceDiscovery  新建发现服务
@@ -43,9 +46,9 @@ func (s *ServiceDiscovery) Build(target resolver.Target, cc resolver.ClientConn,
 	log.Println("Build")
 	s.cc = cc
 	s.serverList = make(map[string]resolver.Address)
-	prefix := "/" + target.Scheme + "/" + target.Endpoint + "/"
+	s.prefix = "/" + target.Scheme + "/" + target.Endpoint + "/"
 	//根据前缀获取现有的key
-	resp, err := s.cli.Get(context.Background(), prefix, clientv3.WithPrefix())
+	resp, err := s.cli.Get(context.Background(), s.prefix, clientv3.WithPrefix())
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +58,7 @@ func (s *ServiceDiscovery) Build(target resolver.Target, cc resolver.ClientConn,
 	}
 	s.cc.UpdateState(resolver.State{Addresses: s.getServices()})
 	//监视前缀，修改变更的server
-	go s.watcher(prefix)
+	go s.watcher()
 	return s, nil
 }
 
@@ -76,9 +79,9 @@ func (s *ServiceDiscovery) Close() {
 }
 
 //watcher 监听前缀
-func (s *ServiceDiscovery) watcher(prefix string) {
-	rch := s.cli.Watch(context.Background(), prefix, clientv3.WithPrefix())
-	log.Printf("watching prefix:%s now...", prefix)
+func (s *ServiceDiscovery) watcher() {
+	rch := s.cli.Watch(context.Background(), s.prefix, clientv3.WithPrefix())
+	log.Printf("watching prefix:%s now...", s.prefix)
 	for wresp := range rch {
 		for _, ev := range wresp.Events {
 			switch ev.Type {
@@ -95,11 +98,15 @@ func (s *ServiceDiscovery) watcher(prefix string) {
 func (s *ServiceDiscovery) SetServiceList(key, val string) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	addr := resolver.Address{Addr: val}
-	addr = weight.SetAddrInfo(addr, weight.AddrInfo{Weight: 10})
+	addr := resolver.Address{Addr: strings.TrimPrefix(key,s.prefix)}
+	nodeWeight,err := strconv.Atoi(val)
+	if err != nil{
+		nodeWeight = 1
+	}
+	addr = weight.SetAddrInfo(addr, weight.AddrInfo{Weight: nodeWeight})
 	s.serverList[key] = addr
 	s.cc.UpdateState(resolver.State{Addresses: s.getServices()})
-	log.Println("put key :", key, "val:", val)
+	log.Println("put key :", key, "wieght:", val)
 }
 
 //DelServiceList 删除服务地址

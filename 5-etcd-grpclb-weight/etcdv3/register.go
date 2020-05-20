@@ -15,11 +15,11 @@ type ServiceRegister struct {
 	//租约keepalieve相应chan
 	keepAliveChan <-chan *clientv3.LeaseKeepAliveResponse
 	key           string //key
-	val           string //value
+	weight           string //value
 }
 
 //NewServiceRegister 新建注册服务
-func NewServiceRegister(endpoints []string, serName, addr string, lease int64) (*ServiceRegister, error) {
+func NewServiceRegister(endpoints []string, addr, weigit string, lease int64) (*ServiceRegister, error) {
 	cli, err := clientv3.New(clientv3.Config{
 		Endpoints:   endpoints,
 		DialTimeout: 5 * time.Second,
@@ -30,8 +30,8 @@ func NewServiceRegister(endpoints []string, serName, addr string, lease int64) (
 
 	ser := &ServiceRegister{
 		cli: cli,
-		key: "/" + schema + "/" + serName + "/" + addr,
-		val: addr,
+		key: "/" + schema + "/" + addr,
+		weight: weigit,
 	}
 
 	//申请租约设置时间keepalive
@@ -50,7 +50,7 @@ func (s *ServiceRegister) putKeyWithLease(lease int64) error {
 		return err
 	}
 	//注册服务并绑定租约
-	_, err = s.cli.Put(context.Background(), s.key, s.val, clientv3.WithLease(resp.ID))
+	_, err = s.cli.Put(context.Background(), s.key, s.weight, clientv3.WithLease(resp.ID))
 	if err != nil {
 		return err
 	}
@@ -62,7 +62,7 @@ func (s *ServiceRegister) putKeyWithLease(lease int64) error {
 	}
 	s.leaseID = resp.ID
 	s.keepAliveChan = leaseRespChan
-	log.Printf("Put key:%s  val:%s  success!", s.key, s.val)
+	log.Printf("Put key:%s  weight:%s  success!", s.key, s.weight)
 	return nil
 }
 
