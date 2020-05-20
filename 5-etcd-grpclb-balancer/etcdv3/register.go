@@ -15,7 +15,7 @@ type ServiceRegister struct {
 	//租约keepalieve相应chan
 	keepAliveChan <-chan *clientv3.LeaseKeepAliveResponse
 	key           string //key
-	weight           string //value
+	weight        string //value
 }
 
 //NewServiceRegister 新建注册服务
@@ -29,8 +29,8 @@ func NewServiceRegister(endpoints []string, addr, weigit string, lease int64) (*
 	}
 
 	ser := &ServiceRegister{
-		cli: cli,
-		key: "/" + schema + "/" + addr,
+		cli:    cli,
+		key:    "/" + schema + "/" + addr,
 		weight: weigit,
 	}
 

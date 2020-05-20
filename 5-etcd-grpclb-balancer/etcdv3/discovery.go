@@ -94,15 +94,19 @@ func (s *ServiceDiscovery) watcher() {
 	}
 }
 
-//SetServiceList 新增服务地址
+//SetServiceList 设置服务地址
 func (s *ServiceDiscovery) SetServiceList(key, val string) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
+	//获取服务地址
 	addr := resolver.Address{Addr: strings.TrimPrefix(key, s.prefix)}
+	//获取服务地址权重
 	nodeWeight, err := strconv.Atoi(val)
 	if err != nil {
+		//非数字字符默认权重为1
 		nodeWeight = 1
 	}
+	//把服务地址权重存储到resolver.Address的元数据中
 	addr = weight.SetAddrInfo(addr, weight.AddrInfo{Weight: nodeWeight})
 	s.serverList[key] = addr
 	s.cc.UpdateState(resolver.State{Addresses: s.getServices()})
