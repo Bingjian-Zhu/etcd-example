@@ -96,7 +96,7 @@ func (s *ServiceDiscovery) SetServiceList(key, val string) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	addr := resolver.Address{Addr: val}
-	addr = SetAddrInfo(addr, weight.AddrInfo{Weight: 3})
+	addr = weight.SetAddrInfo(addr, weight.AddrInfo{Weight: 10})
 	s.serverList[key] = addr
 	s.cc.UpdateState(resolver.State{Addresses: s.getServices()})
 	log.Println("put key :", key, "val:", val)

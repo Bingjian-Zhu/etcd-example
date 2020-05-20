@@ -16,7 +16,7 @@ type SimpleService struct{}
 
 const (
 	// Address 监听地址
-	Address string = "localhost:8000"
+	Address string = "localhost:8001"
 	// Network 网络通信协议
 	Network string = "tcp"
 	// SerName 服务名称
