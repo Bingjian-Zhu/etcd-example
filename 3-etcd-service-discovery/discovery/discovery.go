@@ -86,7 +86,7 @@ func (s *ServiceDiscovery) DelServiceList(key string) {
 func (s *ServiceDiscovery) GetServices() []string {
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	addrs := make([]string, 0, len(serverList))
+	addrs := make([]string, 0, len(s.serverList))
 
 	for _, v := range s.serverList {
 		addrs = append(addrs, v)
