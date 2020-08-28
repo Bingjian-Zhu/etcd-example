@@ -21,9 +21,8 @@ const schema = "grpclb"
 type ServiceDiscovery struct {
 	cli        *clientv3.Client //etcd client
 	cc         resolver.ClientConn
-	serverList map[string]resolver.Address //服务列表
-	lock       sync.Mutex
-	prefix     string //监视的前缀
+	serverList sync.Map //服务列表
+	prefix     string   //监视的前缀
 }
 
 //NewServiceDiscovery  新建发现服务
@@ -45,7 +44,6 @@ func NewServiceDiscovery(endpoints []string) resolver.Builder {
 func (s *ServiceDiscovery) Build(target resolver.Target, cc resolver.ClientConn, opts resolver.BuildOption) (resolver.Resolver, error) {
 	log.Println("Build")
 	s.cc = cc
-	s.serverList = make(map[string]resolver.Address)
 	s.prefix = "/" + target.Scheme + "/" + target.Endpoint + "/"
 	//根据前缀获取现有的key
 	resp, err := s.cli.Get(context.Background(), s.prefix, clientv3.WithPrefix())
@@ -96,8 +94,6 @@ func (s *ServiceDiscovery) watcher() {
 
 //SetServiceList 设置服务地址
 func (s *ServiceDiscovery) SetServiceList(key, val string) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
 	//获取服务地址
 	addr := resolver.Address{Addr: strings.TrimPrefix(key, s.prefix)}
 	//获取服务地址权重
@@ -108,26 +104,24 @@ func (s *ServiceDiscovery) SetServiceList(key, val string) {
 	}
 	//把服务地址权重存储到resolver.Address的元数据中
 	addr = weight.SetAddrInfo(addr, weight.AddrInfo{Weight: nodeWeight})
-	s.serverList[key] = addr
+	s.serverList.Store(key, addr)
 	s.cc.UpdateState(resolver.State{Addresses: s.getServices()})
 	log.Println("put key :", key, "wieght:", val)
 }
 
 //DelServiceList 删除服务地址
 func (s *ServiceDiscovery) DelServiceList(key string) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	delete(s.serverList, key)
+	s.serverList.Delete(key)
 	s.cc.UpdateState(resolver.State{Addresses: s.getServices()})
 	log.Println("del key:", key)
 }
 
 //GetServices 获取服务地址
 func (s *ServiceDiscovery) getServices() []resolver.Address {
-	addrs := make([]resolver.Address, 0, len(s.serverList))
-
-	for _, v := range s.serverList {
-		addrs = append(addrs, v)
-	}
+	addrs := make([]resolver.Address, 0, 10)
+	s.serverList.Range(func(k, v interface{}) bool {
+		addrs = append(addrs, v.(resolver.Address))
+		return true
+	})
 	return addrs
 }

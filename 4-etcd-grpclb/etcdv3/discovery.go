@@ -17,8 +17,7 @@ const schema = "grpclb"
 type ServiceDiscovery struct {
 	cli        *clientv3.Client //etcd client
 	cc         resolver.ClientConn
-	serverList map[string]resolver.Address //服务列表
-	lock       sync.Mutex
+	serverList sync.Map //服务列表
 }
 
 //NewServiceDiscovery  新建发现服务
@@ -40,7 +39,6 @@ func NewServiceDiscovery(endpoints []string) resolver.Builder {
 func (s *ServiceDiscovery) Build(target resolver.Target, cc resolver.ClientConn, opts resolver.BuildOption) (resolver.Resolver, error) {
 	log.Println("Build")
 	s.cc = cc
-	s.serverList = make(map[string]resolver.Address)
 	prefix := "/" + target.Scheme + "/" + target.Endpoint + "/"
 	//根据前缀获取现有的key
 	resp, err := s.cli.Get(context.Background(), prefix, clientv3.WithPrefix())
@@ -91,28 +89,24 @@ func (s *ServiceDiscovery) watcher(prefix string) {
 
 //SetServiceList 新增服务地址
 func (s *ServiceDiscovery) SetServiceList(key, val string) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	s.serverList[key] = resolver.Address{Addr: val}
+	s.serverList.Store(key, resolver.Address{Addr: val})
 	s.cc.UpdateState(resolver.State{Addresses: s.getServices()})
 	log.Println("put key :", key, "val:", val)
 }
 
 //DelServiceList 删除服务地址
 func (s *ServiceDiscovery) DelServiceList(key string) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	delete(s.serverList, key)
+	s.serverList.Delete(key)
 	s.cc.UpdateState(resolver.State{Addresses: s.getServices()})
 	log.Println("del key:", key)
 }
 
 //GetServices 获取服务地址
 func (s *ServiceDiscovery) getServices() []resolver.Address {
-	addrs := make([]resolver.Address, 0, len(s.serverList))
-
-	for _, v := range s.serverList {
-		addrs = append(addrs, v)
-	}
+	addrs := make([]resolver.Address, 0, 10)
+	s.serverList.Range(func(k, v interface{}) bool {
+		addrs = append(addrs, v.(resolver.Address))
+		return true
+	})
 	return addrs
 }

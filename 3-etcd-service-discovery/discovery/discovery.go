@@ -12,9 +12,8 @@ import (
 
 //ServiceDiscovery 服务发现
 type ServiceDiscovery struct {
-	cli        *clientv3.Client  //etcd client
-	serverList map[string]string //服务列表
-	lock       sync.Mutex
+	cli        *clientv3.Client //etcd client
+	serverList sync.Map
 }
 
 //NewServiceDiscovery  新建发现服务
@@ -28,8 +27,7 @@ func NewServiceDiscovery(endpoints []string) *ServiceDiscovery {
 	}
 
 	return &ServiceDiscovery{
-		cli:        cli,
-		serverList: make(map[string]string),
+		cli: cli,
 	}
 }
 
@@ -68,29 +66,23 @@ func (s *ServiceDiscovery) watcher(prefix string) {
 
 //SetServiceList 新增服务地址
 func (s *ServiceDiscovery) SetServiceList(key, val string) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	s.serverList[key] = val
+	s.serverList.Store(key, val)
 	log.Println("put key :", key, "val:", val)
 }
 
 //DelServiceList 删除服务地址
 func (s *ServiceDiscovery) DelServiceList(key string) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	delete(s.serverList, key)
+	s.serverList.Delete(key)
 	log.Println("del key:", key)
 }
 
 //GetServices 获取服务地址
 func (s *ServiceDiscovery) GetServices() []string {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	addrs := make([]string, 0, len(s.serverList))
-
-	for _, v := range s.serverList {
-		addrs = append(addrs, v)
-	}
+	addrs := make([]string, 0, 10)
+	s.serverList.Range(func(k, v interface{}) bool {
+		addrs = append(addrs, v.(string))
+		return true
+	})
 	return addrs
 }
 
